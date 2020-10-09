@@ -31,6 +31,13 @@ class Velocity:
         self.x = x
         self.y = y
 
+    def bearing(self):
+        """bearing of velocity"""
+        return np.arctan2(self.y, self.x)
+
+    def __call__(self):
+        return np.array((self.x, self.y))
+
 
 @ecs.component
 class Position:
