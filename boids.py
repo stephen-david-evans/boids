@@ -61,53 +61,40 @@ class Close:
 
 def get_position_data():
     """get all curent position data"""
-    return np.array([(e.position.x, e.position.y) for e in ecs.World.join(Position, Velocity)])
+    return np.array([e.position() for e in ecs.World.join(Position, Velocity)])
 
 
 def get_velocity_data():
     """get all current velocity data"""
-    return np.array([(e.velocity.x, e.velocity.y) for e in ecs.World.join(Position, Velocity)])
+    return np.array([e.velocity() for e in ecs.World.join(Position, Velocity)])
 
 
-@ecs.system
-def update_positions():
-    """update all positions"""
-    for e in ecs.World.join(Position, Velocity):
-        e.position.x += e.velocity.x
-        e.position.y += e.velocity.y
+def get_close(boid, all_positions, all_velocities):
+    """return positions and velocities of close boids"""
 
+    position = boid.position()
+    other_mask = (all_positions == position).sum(axis=1) < 2
 
-@ecs.system
-def chohesion():
-    positions = get_position_data()
-    centre_direction = positions - np.mean(positions, axis=0)
+    other_positions = all_positions[other_mask, :]
+    other_velocities = all_velocities[other_mask, :]
 
-    for e, d in zip(ecs.World.join(Position, Velocity), centre_direction):
-        e.velocity.x -= COHESION_STRENGTH * d[0]
-        e.velocity.y -= COHESION_STRENGTH * d[1]
-
-@ecs.system
-def separation():
-    positions = get_position_data()
+    distance = np.linalg.norm(other_positions - position, axis=1)
+    close = distance < VISUAL_RANGE
 
     if not close.any():
         return [], []
 
+    other_positions = other_positions[close, :]
+    other_velocities = other_velocities[close, :]
 
-@ecs.system
-def check_boundary():
-    """check for anything outside of boundaries and wrap them"""
-    for e in ecs.World.join(Position, Velocity):
-        if e.position.x > XMAX:
-            e.position.x -= XMAX
-        if e.position.x < XMIN:
-            e.position.x += XMAX
+    angle = np.arctan2(other_positions[:, 1] - boid.position.y,
+                       other_positions[:, 0] - boid.position.x)
+    seen = np.abs(angle - boid.velocity.bearing()) < VISUAL_ANGLE
 
-        if e.position.y > YMAX:
-            e.position.y -= YMAX
-        if e.position.y < YMIN:
-            e.position.y += YMAX
+    if not seen.any():
+        return [], []
 
+    return other_positions[seen, :], other_velocities[seen, :]
 
 
 def create_random_flock(n):
