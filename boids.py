@@ -45,6 +45,19 @@ class Position:
         self.x = x
         self.y = y
 
+    def __call__(self):
+        return np.array((self.x, self.y))
+
+
+@ecs.component
+class Close:
+    def __init__(self, position_data=None, velocity_data=None):
+        self.position_data = position_data
+        self.velocity_data = velocity_data
+
+    def __bool__(self):
+        return len(self.position_data) > 0
+
 
 def get_position_data():
     """get all curent position data"""
@@ -77,6 +90,8 @@ def chohesion():
 def separation():
     positions = get_position_data()
 
+    if not close.any():
+        return [], []
 
 
 @ecs.system
