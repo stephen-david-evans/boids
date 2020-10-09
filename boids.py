@@ -108,16 +108,92 @@ def create_random_flock(n):
         boid.attach(Close(position_data=None, velocity_data=None))
 
 
-def get_quiver_data():
-    entities = ecs.World.join(Position, Velocity)
+@ecs.system
+def find_close():
+    """find close boids and update local subsets of data"""
+    all_positions, all_velocities = get_position_data(), get_velocity_data()
+    for boid in ecs.World.join(Position, Velocity):
+        close_postions, close_velocities = get_close(boid, all_positions, all_velocities)
 
-    positions = []
-    directions = []
-    for e in entities:
-        positions.append((e.position.x, e.position.y))
-        directions.append((e.velocity.x, e.velocity.y))
+        boid.close.position_data = close_postions
+        boid.close.velocity_data = close_velocities
 
-    return np.array(positions), np.array(directions)
+
+@ecs.system
+def limit_speed():
+    """limit top speed of boids"""
+    for e in ecs.World.gather(Velocity):
+        speed = np.linalg.norm((e.velocity.x, e.velocity.y))
+        if speed > MAX_SPEED:
+            e.velocity.x = MAX_SPEED * (e.velocity.x / speed)
+            e.velocity.y = MAX_SPEED * (e.velocity.y / speed)
+
+
+@ecs.system
+def check_boundary():
+    """apply periodic boundary conditions"""
+    for e in ecs.World.join(Position, Velocity):
+        if e.position.x < XMIN + BOUNDARY_LAYER:
+            e.velocity.x += BOUNDARY_FACTOR
+
+        if e.position.x > XMAX - BOUNDARY_LAYER:
+            e.velocity.x -= BOUNDARY_FACTOR
+
+        if e.position.y < YMIN + BOUNDARY_LAYER:
+            e.velocity.y += BOUNDARY_FACTOR
+
+        if e.position.y > YMAX - BOUNDARY_LAYER:
+            e.velocity.y -= BOUNDARY_FACTOR
+
+
+@ecs.system
+def chohesion():
+    """each boid flys towards local centre of mass"""
+    for boid in ecs.World.join(Position, Velocity, Close):
+        if not boid.close:
+            continue
+
+        centre = np.mean(boid.close.position_data, axis=0)
+
+        boid.velocity.x += COHESION_STRENGTH * (centre[0] - boid.position.x)
+        boid.velocity.y += COHESION_STRENGTH * (centre[1] - boid.position.y)
+
+
+@ecs.system
+def separation():
+    """each boid will try and avoid other boids"""
+    for boid in ecs.World.join(Position, Velocity, Close):
+        if not boid.close:
+            continue
+
+        position = boid.position()
+
+        distance = np.linalg.norm(boid.close.position_data - position, axis=1)
+        move = np.sum(position - boid.close.position_data[distance < SEPARATION_RANGE], axis=0)
+
+        boid.velocity.x += SEPARATION_STRENGTH * move[0]
+        boid.velocity.y += SEPARATION_STRENGTH * move[1]
+
+
+@ecs.system
+def alignment():
+    """each boid will try and match velocity to close boids"""
+    for boid in ecs.World.join(Position, Velocity, Close):
+        if not boid.close:
+            continue
+
+        centre = np.mean(boid.close.velocity_data, axis=0)
+
+        boid.velocity.x += ALIGNMENT_STRENGTH * (centre[0] - boid.velocity.x)
+        boid.velocity.y += ALIGNMENT_STRENGTH * (centre[1] - boid.velocity.y)
+
+
+@ecs.system
+def update_positions():
+    """update all positions"""
+    for e in ecs.World.join(Position, Velocity):
+        e.position.x += e.velocity.x
+        e.position.y += e.velocity.y
 
 
 if __name__ == "__main__":
