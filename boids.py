@@ -199,23 +199,27 @@ def update_positions():
 if __name__ == "__main__":
     world = ecs.World()
 
-    create_random_flock(5)
+    create_random_flock(100)
 
     fig = plt.figure(tight_layout=True)
     ax = fig.add_subplot(111)
     ax.set(xlim=(XMIN, XMAX), ylim=(YMIN, YMAX))
 
-    positions, directions = get_quiver_data()
-    plot = ax.quiver(positions[:, 0], positions[:, 1], directions[:, 0], directions[:, 1],
-        pivot="middle")
+    positions, directions = get_position_data(), get_velocity_data()
+    next_positions = positions + directions
 
-    def animate(frame):
+    body, = ax.plot(positions[:, 0], positions[:, 1], c="k", markersize=6, marker="o", ls="none")
+    head, = ax.plot(next_positions[:, 0], next_positions[:, 1], c="r", markersize=3, marker="o", ls="none")
+
+    def animate(frame, body, head):
         world.run_systems()
 
         positions, directions = get_position_data(), get_velocity_data()
-        plot.set_offsets(positions)
-        plot.set_UVC(directions[:, 0], directions[:, 1])
+        next_positions = positions + directions
 
-    anim = animation.FuncAnimation(fig, animate, frames=50, interval=3)
+        body.set_data(positions[:, 0], positions[:, 1])
+        head.set_data(next_positions[:, 0], next_positions[:, 1])
+
+    anim = animation.FuncAnimation(fig, animate, interval=0, fargs=(body, head))
 
     plt.show()
