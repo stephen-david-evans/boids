@@ -98,12 +98,14 @@ def get_close(boid, all_positions, all_velocities):
 
 
 def create_random_flock(n):
+    """create a random flock of boids uniformly across parameter space"""
     for _ in range(n):
         boid = world.create()
         boid.attach(Position(x=np.random.uniform(XMIN, XMAX),
                              y=np.random.uniform(YMIN, YMAX)))
-        boid.attach(Velocity(x=np.random.uniform(-0.1, 0.1),
-                             y=np.random.uniform(-0.1, 0.1)))
+        boid.attach(Velocity(x=np.random.uniform(-MAX_SPEED, MAX_SPEED),
+                             y=np.random.uniform(-MAX_SPEED, MAX_SPEED)))
+        boid.attach(Close(position_data=None, velocity_data=None))
 
 
 def get_quiver_data():
